@@ -2,29 +2,29 @@
 
 namespace App\Controller;
 
-use App\Service\GmailClientService;
+use App\Service\GoogleClientService;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Routing\Annotation\Route;
 
-class GmailController extends AbstractController
+class GoogleOAuthController extends AbstractController
 {
-    private GmailClientService $gmail_client_service;
+    private GoogleClientService $gmail_client_service;
 
-    public function __construct(GmailClientService $gmail_client_service)
+    public function __construct(GoogleClientService $gmail_client_service)
     {
         $this->gmail_client_service = $gmail_client_service;
     }
 
     /**
-     * @Route("/gmail/auth", name="gmail_auth")
+     * @Route("/google/oauth", name="google_oauth")
      */
-    #[Route('/gmail/auth', name: 'gmail_auth')]
-    public function auth(Request $request, SessionInterface $session): RedirectResponse
+    #[Route('/google/oauth', name: 'google_oauth')]
+    public function auth(SessionInterface $session): RedirectResponse
     {
-        $client = $this->gmail_client_service->getClient();
+        $client = $this->gmail_client_service->get_client();
         $auth_url = $client->createAuthUrl();
         $session->set('oauth_token', $client->getAccessToken());
 
@@ -32,26 +32,24 @@ class GmailController extends AbstractController
     }
 
     /**
-     * @Route("/gmail/callback", name="gmail_callback")
+     * @Route("/google/callback", name="google_callback")
      */
-    #[Route('/gmail/callback', name: 'gmail_callback')]
-    public function callback(Request $request, SessionInterface $session): RedirectResponse
+    #[Route('/google/callback', name: 'google_callback')]
+    public function callback(Request $request): RedirectResponse
     {
-        $client = $this->gmail_client_service->getClient();
+        $client = $this->gmail_client_service->get_client();
 
         if ($request->query->get('code')) {
             $access_token = $client->fetchAccessTokenWithAuthCode($request->query->get('code'));
             $refresh_token = $client->getRefreshToken();
 
-            // Set the access token for the Gmail API service
             $client->setAccessToken($access_token);
 
-            // Get the Gmail service
-            $gmail_service = $this->gmail_client_service->getGmailService();
+            $gmail_service = $this->gmail_client_service->get_gmail_service();
 
             // Fetch the user's email
-            $userProfile = $gmail_service->users->getProfile('me');
-            $user_email = $userProfile->getEmailAddress();
+            $user_profile = $gmail_service->users->getProfile('me');
+            $user_email = $user_profile->getEmailAddress();
 
             $token_data = [
                 'access_token' => $access_token['access_token'],
@@ -61,15 +59,17 @@ class GmailController extends AbstractController
 
             $this->save_tokens_to_file($user_email, $token_data);
 
-            // Redirect to another route after saving the tokens
-            return $this->redirectToRoute('some_route_name');
+            // TODO: create a route to handle oauth success
+            return $this->redirectToRoute('invalid_success_route');
         }
-        // return $this->redirectToRoute('some_route_name'); // Redirect to your desired route after auth
+
+        // TODO: create a route to handle oauth error
+        return $this->redirectToRoute('invalid_error_route');
     }
 
     private function save_tokens_to_file(string $user_email, array $token_data): void
     {
-        // Use __DIR__ to get the current directory of the script
+        // Use __DIR__ to get the current directory of the this file
         $file_path = __DIR__ . '/token.json';
 
         $dir = dirname($file_path);

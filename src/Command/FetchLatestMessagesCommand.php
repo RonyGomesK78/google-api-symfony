@@ -2,7 +2,7 @@
 
 namespace App\Command;
 
-use App\Service\GmailClientService;
+use App\Service\GoogleClientService;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -11,7 +11,7 @@ class FetchLatestMessagesCommand extends Command
 {
     private $gmail_service;
 
-    public function __construct(GmailClientService $gmail_service)
+    public function __construct(GoogleClientService $gmail_service)
     {
         parent::__construct();
         $this->gmail_service = $gmail_service;
@@ -30,7 +30,8 @@ class FetchLatestMessagesCommand extends Command
     {
         $output->writeln('Fetching latest messages for all users...');
 
-        $token_file_path = '/home/rony78k/g_integration_php/src/Controller/token.json'; // Adjust the path accordingly
+        $token_file_path = __DIR__ . '/../Controller/token.json';
+
         if (!file_exists($token_file_path)) {
             $output->writeln('Token file does not exist.');
             return Command::FAILURE;
@@ -40,7 +41,7 @@ class FetchLatestMessagesCommand extends Command
         $token_data = json_decode(file_get_contents($token_file_path), true);
 
         foreach ($token_data as $user_email => &$user_token) {  // Use reference to update tokens and fetch email
-            $client = $this->gmail_service->getClient();
+            $client = $this->gmail_service->get_client();
             $client->setAccessToken($user_token['access_token']);
 
             // Refresh the token if expired
@@ -58,7 +59,7 @@ class FetchLatestMessagesCommand extends Command
             $output->writeln("<info>Messages for user: $user_email</info>");
 
             // Fetch the latest messages for the user
-            $gmail_service = $this->gmail_service->getGmailService();
+            $gmail_service = $this->gmail_service->get_gmail_service();
             $messages = $gmail_service->users_messages->listUsersMessages('me', ['maxResults' => 10]);
 
             foreach ($messages->getMessages() as $message) {
